@@ -1,19 +1,20 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
-#include <libsystem/cstring.h>
-#include <libsystem/iostream.h>
-
-#include <libsystem/logger.h>
-#include <libsystem/process.h>
-#include <libsystem/messaging.h>
 #include <libsystem/filesystem.h>
+#include <libsystem/io/Stream.h>
+#include <libsystem/logger.h>
+#include <libsystem/process/Launchpad.h>
+#include <libsystem/process/Process.h>
 
 int init_exec(const char *filename)
 {
-    logger_info("Starting '%s'", filename);
-    int process = process_exec(filename, (const char *[]){filename, NULL});
+    logger_info("Starting '%s'...", filename);
+
+    Launchpad *launchpad = launchpad_create(filename, filename);
+
+    int process = launchpad_launch(launchpad);
 
     if (process < 0)
     {
@@ -29,21 +30,16 @@ int init_exec(const char *filename)
 
 int main(int argc, char **argv)
 {
-    (void)argc;
-    (void)argv;
+    __unused(argc);
+    __unused(argv);
 
     logger_level(LOGGER_TRACE);
 
-    printf("Welcome to \033[1;34mskiftOS\033[0m!\n");
-    iostream_flush(out_stream);
+    int term = init_exec("/bin/Compositor");
 
-    filesystem_mkfifo("/dev/term");
-    init_exec("/bin/term");
-    int shell = init_exec("/bin/sh");
+    process_wait(term, NULL);
 
-    process_wait(shell, NULL);
-
-    printf("\n\e[1;34mGoodbye!");
+    printf("\n\n\t\e[1;34mGoodbye!\e[m - n°1\n\n");
 
     return 0;
 }

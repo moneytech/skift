@@ -1,25 +1,29 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
+#include <abi/Syscalls.h>
+
+#include <libsystem/Result.h>
+#include <libsystem/logger.h>
 #include <libsystem/memory.h>
-#include <libkernel/syscalls.h>
-#include <libsystem/error.h>
 
-int shared_memory_alloc(uint pagecount)
+Result shared_memory_alloc(size_t size, uintptr_t *out_address)
 {
-    int r = __syscall(SYS_SHARED_MEMORY_ALLOC, pagecount, 0, 0, 0, 0);
-    RETURN_AND_SET_ERROR(r, r, -1);
+    return __syscall(SYS_SHARED_MEMORY_ALLOC, size, (int)out_address, 0, 0, 0);
 }
 
-int shared_memory_acquire(int shm, uint *addr)
+Result shared_memory_free(uintptr_t address)
 {
-    int r = __syscall(SYS_SHARED_MEMORY_ALLOC, shm, (int)addr, 0, 0, 0);
-    RETURN_AND_SET_ERROR(r, r, -1);
+    return __syscall(SYS_SHARED_MEMORY_FREE, address, 0, 0, 0, 0);
 }
 
-int shared_memory_release(int shm)
+Result shared_memory_include(int handle, uintptr_t *out_address, size_t *out_size)
 {
-    int r = __syscall(SYS_SHARED_MEMORY_ALLOC, shm, 0, 0, 0, 0);
-    RETURN_AND_SET_ERROR(r, r, -1);
+    return __syscall(SYS_SHARED_MEMORY_INCLUDE, handle, (int)out_address, (int)out_size, 0, 0);
+}
+
+Result shared_memory_get_handle(uintptr_t address, int *out_handle)
+{
+    return __syscall(SYS_SHARED_MEMORY_GET_HANDLE, address, (int)out_handle, 0, 0, 0);
 }

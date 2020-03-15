@@ -1,8 +1,8 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
-#include <libsystem/iostream.h>
+#include <libsystem/io/Stream.h>
 
 int main(int argc, char **argv)
 {
@@ -11,8 +11,8 @@ int main(int argc, char **argv)
 
     for (int i = 1; i < argc; i++)
     {
-        IOStream *stream = iostream_open(argv[i], IOSTREAM_CREATE);
-        iostream_close(stream);
+        Stream *stream = stream_open(argv[i], OPEN_CREATE);
+        stream_close(stream);
     }
 
     return 0;

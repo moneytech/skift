@@ -1,13 +1,12 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
+#include <libmath/MinMax.h>
 #include <libsystem/__printf__.h>
-
-#include <libmath/math.h>
 #include <libsystem/cstring.h>
+#include <libsystem/io/Stream.h>
 #include <libsystem/runtime.h>
-#include <libsystem/iostream.h>
 
 /* --- snprintf ------------------------------------------------------------- */
 
@@ -278,7 +277,7 @@ size_t strlcpy(char *dst, const char *src, size_t maxlen)
         memcpy(dst, src, maxlen - 1);
         dst[maxlen - 1] = '\0';
     }
-    
+
     return srclen;
 }
 
@@ -397,7 +396,7 @@ size_t strxfrm(char *dest, const char *src, size_t n)
     size_t len;
 
     len = strlen(src);
-    (void)memcpy((void *)dest, (void *)src, min(n, len + 1));
+    (void)memcpy((void *)dest, (void *)src, MIN(n, len + 1));
 
     return len;
 }
@@ -462,7 +461,7 @@ void strtrailtrim(char *str, char c)
 char *strdup(const char *s)
 {
     int lenght = strlen(s) + 1;
-    char * allocated_string = malloc(lenght);
+    char *allocated_string = malloc(lenght);
 
     if (allocated_string != NULL)
     {

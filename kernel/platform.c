@@ -1,8 +1,15 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
-#include "platform.h"
+#include <libsystem/cstring.h>
+
+#include "kernel/platform.h"
+
+size_t platform_page_size(void)
+{
+    return 4096;
+}
 
 /* --- FPU ------------------------------------------------------------------ */
 
@@ -27,13 +34,13 @@ void platform_fpu_enable(void)
 
 char fpu_registers[512] __aligned(16);
 
-void platform_fpu_save_context(task_t *t)
+void platform_fpu_save_context(Task *t)
 {
     asm volatile("fxsave (%0)" ::"r"(fpu_registers));
     memcpy(&t->fpu_registers, &fpu_registers, 512);
 }
 
-void platform_fpu_load_context(task_t *t)
+void platform_fpu_load_context(Task *t)
 {
     memcpy(&fpu_registers, &t->fpu_registers, 512);
     asm volatile("fxrstor (%0)" ::"r"(fpu_registers));
@@ -50,12 +57,12 @@ void platform_setup(void)
     platform_fpu_enable();
 }
 
-void platform_save_context(task_t *t)
+void platform_save_context(Task *task)
 {
-    platform_fpu_save_context(t);
+    platform_fpu_save_context(task);
 }
 
-void platform_load_context(task_t *t)
+void platform_load_context(Task *task)
 {
-    platform_fpu_load_context(t);
+    platform_fpu_load_context(task);
 }

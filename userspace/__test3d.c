@@ -1,15 +1,15 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
-#include <libsystem/iostream.h>
-#include <libsystem/cstring.h>
-#include <libsystem/error.h>
-#include <libsystem/logger.h>
+#include <libsystem/Result.h>
 #include <libsystem/assert.h>
+#include <libsystem/cstring.h>
+#include <libsystem/io/Stream.h>
+#include <libsystem/logger.h>
 
-#include <libgraphic/framebuffer.h>
-#include <libgraphic/matrix.h>
+#include <libgraphic/Framebuffer.h>
+#include <libgraphic/Matrix.h>
 
 typedef struct
 {
@@ -89,7 +89,7 @@ static const face_t cude_mesh[] = {
     {{1.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
 };
 
-vector3_t matrix_apply_tranform(vector3_t position, matrix_t transform)
+vector3_t matrix_apply_tranform(vector3_t position, Matrix4 transform)
 {
     vector3_t out = {0};
 
@@ -123,19 +123,19 @@ vector3_t matrix_apply_tranform(vector3_t position, matrix_t transform)
     return out;
 }
 
-void painter3D_draw_line(Painter *paint, vector3_t va, vector3_t vb, Color color)
+void painter3D_draw_line(Painter *painter, vector3_t va, vector3_t vb, Color color)
 {
-    painter_draw_line(paint, (Point){va.X, va.Y}, (Point){vb.X, vb.Y}, color);
+    painter_draw_line(painter, (Point){va.X, va.Y}, (Point){vb.X, vb.Y}, color);
 }
 
-void painter3D_draw_face(Painter *paint, face_t face, Color color)
+void painter3D_draw_face(Painter *painter, face_t face, Color color)
 {
-    painter3D_draw_line(paint, face.a, face.b, color);
-    painter3D_draw_line(paint, face.b, face.c, color);
-    painter3D_draw_line(paint, face.c, face.a, color);
+    painter3D_draw_line(painter, face.a, face.b, color);
+    painter3D_draw_line(painter, face.b, face.c, color);
+    painter3D_draw_line(painter, face.c, face.a, color);
 }
 
-void painter3D_fill_face(Painter *paint, face_t face, Color color)
+void painter3D_fill_face(Painter *painter, face_t face, Color color)
 {
     vector3_t a = face.a;
     vector3_t b = face.b;
@@ -174,28 +174,28 @@ void painter3D_fill_face(Painter *paint, face_t face, Color color)
     {
         for (; s.Y <= b.Y; s.Y++, e.Y++, s.X += dx2, e.X += dx1)
         {
-            painter3D_draw_line(paint, (vector3_t){s.X - 1, s.Y, 0}, (vector3_t){e.X + 1, s.Y, 0}, color);
+            painter3D_draw_line(painter, (vector3_t){s.X - 1, s.Y, 0}, (vector3_t){e.X + 1, s.Y, 0}, color);
         }
 
         e = b;
 
         for (; s.Y <= c.Y; s.Y++, e.Y++, s.X += dx2, e.X += dx3)
         {
-            painter3D_draw_line(paint, (vector3_t){s.X - 1, s.Y, 0}, (vector3_t){e.X + 1, s.Y, 0}, color);
+            painter3D_draw_line(painter, (vector3_t){s.X - 1, s.Y, 0}, (vector3_t){e.X + 1, s.Y, 0}, color);
         }
     }
     else
     {
         for (; s.Y <= b.Y; s.Y++, e.Y++, s.X += dx1, e.X += dx2)
         {
-            painter3D_draw_line(paint, (vector3_t){s.X - 1, s.Y, 0}, (vector3_t){e.X + 1, s.Y, 0}, color);
+            painter3D_draw_line(painter, (vector3_t){s.X - 1, s.Y, 0}, (vector3_t){e.X + 1, s.Y, 0}, color);
         }
 
         s = b;
 
         for (; s.Y <= c.Y; s.Y++, e.Y++, s.X += dx3, e.X += dx2)
         {
-            painter3D_draw_line(paint, (vector3_t){s.X - 1, s.Y, 0}, (vector3_t){e.X + 1, s.Y, 0}, color);
+            painter3D_draw_line(painter, (vector3_t){s.X - 1, s.Y, 0}, (vector3_t){e.X + 1, s.Y, 0}, color);
         }
     }
 }
@@ -205,15 +205,17 @@ int main(int argc, char **argv)
     __unused(argc);
     __unused(argv);
 
-    framebuffer_t *fb = framebuffer_open();
+    Framebuffer *framebuffer = framebuffer_open();
 
-    if (fb == NULL)
+    if (handle_has_error(framebuffer))
     {
-        error_print("Failled to open the framebuffer.");
+        handle_printf_error(framebuffer, "failled to open /dev/framebuffer");
+        framebuffer_close(framebuffer);
+
         return -1;
     }
 
-    matrix_t projection = matrix_create_projection(0.1, 1000.0f, 45.0f, fb->height / (double)fb->width);
+    Matrix4 projection = matrix_create_projection(0.1, 1000.0f, 45.0f, framebuffer->height / (double)framebuffer->width);
 
     vector3_t camera_position = {0, 0, 0};
 
@@ -223,12 +225,12 @@ int main(int argc, char **argv)
     {
         theta += 0.01;
 
-        matrix_t matRotZ = matrix_create_rotationX(theta);
-        matrix_t matRotX = matrix_create_rotationZ(theta);
+        Matrix4 matRotZ = matrix_create_rotationX(theta);
+        Matrix4 matRotX = matrix_create_rotationZ(theta);
 
-        Color background_color = HSV(abs(sin(theta / 10 + PI / 2)) * 360, 1, 1);
+        Color background_color = HSV(abs(sin(theta / 10 + PI / 2)) * 360, 0.5, 0.75);
 
-        painter_clear(fb->painter, background_color);
+        painter_clear(framebuffer->painter, background_color);
 
         for (int i = 0; i < 12; i++)
         {
@@ -274,20 +276,20 @@ int main(int argc, char **argv)
                 triProjected.c.X += 1.0;
                 triProjected.c.Y += 1.0;
 
-                triProjected.a.X *= 0.5 * fb->width;
-                triProjected.a.Y *= 0.5 * fb->height;
-                triProjected.b.X *= 0.5 * fb->width;
-                triProjected.b.Y *= 0.5 * fb->height;
-                triProjected.c.X *= 0.5 * fb->width;
-                triProjected.c.Y *= 0.5 * fb->height;
+                triProjected.a.X *= 0.5 * framebuffer->width;
+                triProjected.a.Y *= 0.5 * framebuffer->height;
+                triProjected.b.X *= 0.5 * framebuffer->width;
+                triProjected.b.Y *= 0.5 * framebuffer->height;
+                triProjected.c.X *= 0.5 * framebuffer->width;
+                triProjected.c.Y *= 0.5 * framebuffer->height;
 
                 Color color = HSV(abs(sin(theta / 10)) * 360, 0.5, light_force);
-                painter3D_fill_face(fb->painter, triProjected, color);
-                painter3D_draw_face(fb->painter, triProjected, COLOR_BLACK);
+                painter3D_fill_face(framebuffer->painter, triProjected, color);
+                painter3D_draw_face(framebuffer->painter, triProjected, COLOR_BLACK);
             }
         }
 
-        framebuffer_blit(fb);
+        framebuffer_blit(framebuffer);
     } while (true);
 
     return 0;

@@ -1,36 +1,36 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
-#include <libsystem/iostream.h>
+#include <libsystem/io/Stream.h>
 
 int main(int argc, char **argv)
 {
     __unused(argc);
     __unused(argv);
 
-    printf("\033[m");
+    printf("\e[mColors: ");
 
     for (int i = 0; i < 8; i++)
     {
-        for (int j = 0; j < 8; j++)
-        {
-            printf("\033[%d;%dm##", 30 + i, 40 + j);
-        }
-        printf("\033[0m\n");
+        printf("\e[%dm ", 40 + i);
+    }
+
+    for (int i = 0; i < 8; i++)
+    {
+        printf("\e[%dm ", 100 + i);
     }
 
     printf("\n");
 
-    for (int i = 0; i < 8; i++)
-    {
-        printf("\033[1m");
-        for (int j = 0; j < 8; j++)
-        {
-            printf("\033[%d;%dm##", 30 + i, 40 + j);
-        }
-        printf("\033[0m\n");
-    }
+    printf("\e[mStyles:");
+    printf(" regular");
+    printf(" \e[4munderline\e[m");
+    printf(" \e[1mbold\e[m");
+    printf(" \e[3minverted\e[m");
+    printf(" \e[1;3;4mall at the same time\n\e[m");
+
+    printf("\e[mUnicode: ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■☺☻♥♦♣♠•◘○◙♂♀♪♫☼⌂►◄↕‼¶§▬↨↑↓→←∟↔▲▼");
 
     return 0;
 }

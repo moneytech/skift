@@ -1,13 +1,13 @@
 #pragma once
 
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
-#include <libsystem/messaging.h>
 #include <libdevice/keys.h>
+#include <libsystem/unicode/Codepoint.h>
 
-#define KEYBOARD_DEVICE "/dev/kbd"
+#define KEYBOARD_DEVICE "/dev/keyboard"
 
 #define KEYBOARD_CHANNEL "#dev:keyboard"
 
@@ -27,6 +27,6 @@ typedef struct
 
 typedef struct
 {
-    key_t key;
-    int codepoint;
+    Key key;
+    Codepoint codepoint;
 } keyboard_event_t;

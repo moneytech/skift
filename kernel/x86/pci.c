@@ -1,8 +1,12 @@
-#include <libsystem/logger.h>
-#include <libsystem/cstring.h>
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
+/* This code is licensed under the MIT License.                               */
+/* See: LICENSE.md                                                            */
 
-#include "x86/pci.h"
-#include "processor.h"
+#include <libsystem/cstring.h>
+#include <libsystem/logger.h>
+
+#include "kernel/x86/pci.h"
+#include "kernel/x86/x86.h"
 
 void pci_write_field(uint32_t device, int field, int size, uint32_t value)
 {

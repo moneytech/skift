@@ -1,22 +1,21 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
-/* plugs.c: Plugs functions for using the skift Framework in the userspace.   */
-
 #include <libsystem/__plugs__.h>
 #include <libsystem/cstring.h>
+#include <libsystem/io/Stream.h>
 #include <libsystem/lock.h>
 #include <libsystem/logger.h>
-#include <libsystem/process.h>
+#include <libsystem/process/Process.h>
 
 Lock memlock;
 Lock loglock;
 
-IOStream *in_stream;
-IOStream *out_stream;
-IOStream *err_stream;
-IOStream *log_stream;
+Stream *in_stream;
+Stream *out_stream;
+Stream *err_stream;
+Stream *log_stream;
 
 extern void _init();
 extern void _fini();
@@ -27,10 +26,10 @@ void __plug_init(void)
     lock_init(loglock);
 
     // Open io stream
-    in_stream = NULL; // FIXME: no stdin,
-    out_stream = iostream_open("/dev/term", IOSTREAM_WRITE | IOSTREAM_BUFFERED_WRITE);
-    err_stream = iostream_open("/dev/term", IOSTREAM_WRITE | IOSTREAM_BUFFERED_WRITE);
-    log_stream = iostream_open("/dev/serial", IOSTREAM_WRITE | IOSTREAM_BUFFERED_WRITE);
+    in_stream = stream_open_handle(0, OPEN_READ);
+    out_stream = stream_open_handle(1, OPEN_WRITE | OPEN_BUFFERED);
+    err_stream = stream_open_handle(2, OPEN_WRITE | OPEN_BUFFERED);
+    log_stream = stream_open_handle(3, OPEN_WRITE | OPEN_BUFFERED);
 
     _init();
 }
@@ -39,9 +38,25 @@ void __plug_fini(int exit_code)
 {
     _fini();
 
-    iostream_flush(out_stream);
-    iostream_flush(err_stream);
-    iostream_flush(log_stream);
+    if (in_stream)
+    {
+        stream_flush(out_stream);
+    }
+
+    if (out_stream)
+    {
+        stream_flush(out_stream);
+    }
+
+    if (err_stream)
+    {
+        stream_flush(err_stream);
+    }
+
+    if (log_stream)
+    {
+        stream_flush(log_stream);
+    }
 
     process_exit(exit_code);
 }

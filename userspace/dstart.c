@@ -1,38 +1,34 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
 /* dstart.c: start a process as a daemon                                      */
 
-#include <libsystem/process.h>
-#include <libsystem/error.h>
-#include <libsystem/iostream.h>
-#include <libkernel/task.h>
+#include <libsystem/io/Stream.h>
+#include <libsystem/process/Launchpad.h>
 
 int main(int argc, char const *argv[])
 {
-    if (argc >= 2)
+    if (argc < 2)
     {
-        const char *deamon_argv[TASK_ARGV_COUNT];
-
-        for (int i = 0; i < TASK_ARGV_COUNT - 1; i++)
-        {
-            deamon_argv[i] = argv[i + 1];
-        }
-
-        if (process_exec(argv[1], deamon_argv) < 0)
-        {
-            error_print("Failled to start deamon");
-            return -1;
-        }
-        else
-        {
-            return 0;
-        }
-    }
-    else
-    {
-        printf("No executable specified!\n");
+        stream_printf(err_stream, "dstart: No executable specified!\n");
         return -1;
     }
+
+    Launchpad *launchpad = launchpad_create(argv[1], argv[1]);
+
+    for (int i = 0; i < argc - 1; i++)
+    {
+        launchpad_argument(launchpad, argv[i + 1]);
+    }
+
+    int result = launchpad_launch(launchpad);
+
+    if (result < 0)
+    {
+        stream_printf(err_stream, "dstart: Failled to start %s: %s\n", argv[1], result_to_string(-result));
+        return -1;
+    }
+
+    return 0;
 }

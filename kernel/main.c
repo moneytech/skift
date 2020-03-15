@@ -5,42 +5,35 @@
 /*                      |_| |_|\___/|_____|_| \_\|_|                          */
 /*                                                                            */
 
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
 /* main.c : the entry point of the kernel.                                    */
 
-/*
- * TODO:
- * - ADD support for kernel command line options.
- */
-
+#include <libmath/math.h>
+#include <libsystem/Result.h>
 #include <libsystem/__plugs__.h>
 #include <libsystem/atomic.h>
 #include <libsystem/cstring.h>
-#include <libsystem/iostream.h>
+#include <libsystem/io/Stream.h>
 #include <libsystem/logger.h>
-#include <libmath/math.h>
-#include <libsystem/error.h>
+#include <libsystem/process/Launchpad.h>
 
-#include "x86/gdt.h"
-#include "x86/idt.h"
-#include "x86/irq.h"
-#include "x86/isr.h"
+#include <thirdparty/multiboot/Multiboot.h>
 
-#include "devices.h"
-#include "filesystem.h"
-#include "memory.h"
-#include "modules.h"
-#include "mouse.h"
-#include "multiboot.h"
-#include "paging.h"
-#include "serial.h"
-#include "system.h"
-#include "tasking.h"
-#include "platform.h"
-#include "clock.h"
+#include "kernel/clock.h"
+#include "kernel/device/Device.h"
+#include "kernel/filesystem/Filesystem.h"
+#include "kernel/memory.h"
+#include "kernel/modules.h"
+#include "kernel/paging.h"
+#include "kernel/platform.h"
+#include "kernel/serial.h"
+#include "kernel/system.h"
+#include "kernel/tasking.h"
+#include "kernel/x86/Interrupts.h"
+#include "kernel/x86/gdt.h"
 
 static multiboot_info_t mbootinfo = {0};
 static TimeStamp boot_timestamp = 0;
@@ -59,9 +52,11 @@ void kmain(multiboot_info_t *info, uint magic)
     logger_level(LOGGER_TRACE);
 
     /* --- Early operation -------------------------------------------------- */
+
     memcpy(&mbootinfo, info, sizeof(multiboot_info_t));
 
     /* --- System check ----------------------------------------------------- */
+
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC)
     {
         PANIC("Wrong bootloader please use a GRUB or any multiboot2 bootloader\n\tMagic number: 0x%08x != 0x%08x !", magic, MULTIBOOT_BOOTLOADER_MAGIC);
@@ -108,52 +103,63 @@ void kmain(multiboot_info_t *info, uint magic)
     logger_info("Framebuffer: %dx%dx%d", info->framebuffer_width, info->framebuffer_height, info->framebuffer_bpp);
 
     /* --- Setup cpu context ------------------------------------------------ */
+
     setup(gdt);
-    setup(pic);
-    setup(idt);
-    setup(isr);
-    setup(irq);
     setup(platform);
 
     /* --- System context --------------------------------------------------- */
+
     logger_info("Initializing system...");
     setup(memory, &mbootinfo);
-    setup(filesystem);
-    setup(tasking);
+    tasking_initialize();
 
-    /* --- Finalizing System ------------------------------------------------ */
-    atomic_enable();
-    sti();
+    interrupts_initialize();
 
     /* --- Devices ---------------------------------------------------------- */
-    setup(modules, &mbootinfo);
 
     logger_info("Mounting devices...");
-    setup(textmode);
-    setup(framebuffer, info);
-    setup(serial);
-    setup(mouse);
-    setup(keyboard);
 
-    setup(proc);
-    setup(null);
-    setup(zero);
-    setup(random);
+    filesystem_initialize();
+
+    setup(modules, &mbootinfo);
+    null_initialize();
+    zero_initialize();
+    random_initialize();
+    serial_initialize();
+    mouse_initialize();
+    keyboard_initialize();
+
+    if (!framebuffer_initialize(info))
+    {
+        textmode_initialize();
+    }
+
+    /* --- Entering userspace ----------------------------------------------- */
 
     logger_info("Starting the userspace...");
 
-    /* --- Entering userspace ----------------------------------------------- */
-    int init = task_exec("/bin/init", (const char *[]){"/bin/init", NULL});
+    Launchpad *init_lauchpad = launchpad_create("init", "/bin/init");
 
-    if (init < 0)
-    {
-        PANIC("Failled to start init : %s", error_to_string(-init));
-    }
-    else
-    {
-        int exitvalue = 0;
-        task_wait(init, &exitvalue);
+    Stream *keyboard_device = stream_open("/dev/keyboard", OPEN_READ);
+    Stream *serial_device = stream_open("/dev/serial", OPEN_WRITE);
 
-        PANIC("Init has return with code %d!", exitvalue);
+    launchpad_handle(init_lauchpad, HANDLE(keyboard_device), 0);
+    launchpad_handle(init_lauchpad, HANDLE(serial_device), 1);
+    launchpad_handle(init_lauchpad, HANDLE(serial_device), 2);
+    launchpad_handle(init_lauchpad, HANDLE(serial_device), 3);
+
+    int init_process = launchpad_launch(init_lauchpad);
+
+    stream_close(keyboard_device);
+    stream_close(serial_device);
+
+    if (init_process < 0)
+    {
+        PANIC("Failled to start init : %s", result_to_string((Result)-init_process));
     }
+
+    int init_exitvalue = 0;
+    task_wait(init_process, &init_exitvalue);
+
+    PANIC("Init has return with code %d!", init_exitvalue);
 }

@@ -1,9 +1,9 @@
 #pragma once
 
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
-#include <libsystem/iostream.h>
+#include <libsystem/io/Stream.h>
 
-void debug_hexdump(IOStream *stream, char *desc, const void *addr, int len);
+void debug_hexdump(Stream *stream, char *desc, const void *addr, size_t len);

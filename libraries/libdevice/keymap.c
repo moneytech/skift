@@ -1,14 +1,18 @@
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
+/* This code is licensed under the MIT License.                               */
+/* See: LICENSE.md                                                            */
+
 #include <libdevice/keymap.h>
 
-static keymap_keybing_t* keymap_lookup(keymap_t* this, key_t key)
+static KeyMapping *keymap_lookup(KeyMap *keymap, Key key)
 {
-    for (int i = 0; i < this->bindings_count; i++)
+    for (int i = 0; i < keymap->mappings_count; i++)
     {
-        if( this->bindings[i].key == key)
+        if (keymap->mappings[i].key == key)
         {
-            return &this->bindings[i];
+            return &keymap->mappings[i];
         }
     }
-    
+
     return NULL;
 }

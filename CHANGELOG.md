@@ -13,12 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - Path manipulation and parsing module to framework
  - Command line option to some coreutils
  - `call`, `link`, `unlink`, `rename` syscalls
- - `skift/iostream.h` a stdio like library, with support for buffered I/O
+ - `skift/io/stream.h` a stdio like library, with support for buffered I/O
  - `skift/launchpad.h` a process creation API inspired by the fushia project (wip)
  - `cd`, `exit`, `mv` command to the shell
  - Devices files: `/dev/framebuffer`, `/dev/textmode`, `/dev/proc`
  - `lsproc` utility for listing running processes
- - `gfxctl` utility for getting, setting and listing graphics modes
+ - `displayctl` utility for getting, setting and listing graphics modes
  - Some graphic demos `lines`, `colors`, `gfxtest`
  - Mouse cursors, fonts and wallpapers in `/res`
  - Support for FPU
@@ -45,5 +45,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - The memory manager was free'ing the wrong physical page when doing a `memory_free` or `memory_unmap`
  - Processes are now properly cleaned-up
 
-# v0.1.0 
+# v0.1.0
  - Initial release

@@ -1,5 +1,9 @@
 #pragma once
 
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
+/* This code is licensed under the MIT License.                               */
+/* See: LICENSE.md                                                            */
+
 #include <libsystem/runtime.h>
 
 #define EPOCH_YEAR 1970
@@ -22,6 +26,8 @@ static const int DAYS_PER_YEAR[2] = {365, 366};
 typedef u32 ElapsedTime;
 
 typedef u32 TimeStamp;
+
+typedef u32 Timeout;
 
 typedef struct
 {

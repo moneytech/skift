@@ -1,12 +1,16 @@
 #pragma once
 
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
+/* This code is licensed under the MIT License.                               */
+/* See: LICENSE.md                                                            */
+
 #include <libsystem/runtime.h>
 
 typedef enum
 {
     KEY_MOTION_UP,
     KEY_MOTION_DOWN
-} key_motion_t;
+} KeyMotion;
 
 #define KEY_LIST(__ENTRY)                     \
     __ENTRY(KEY_ESC, 0x01)                    \
@@ -125,8 +129,8 @@ typedef enum
 {
     KEY_LIST(KEY_ENUM_ENTRY)
         __KEY_COUNT,
-} key_t;
+} Key;
 
-const char *key_to_string(key_t key);
+const char *key_to_string(Key key);
 
-bool key_is_valid(key_t key);
+bool key_is_valid(Key key);

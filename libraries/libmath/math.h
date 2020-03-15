@@ -1,27 +1,13 @@
 #pragma once
 
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
 #include <libsystem/runtime.h>
 
-#define HUGE_VAL (1.0 / 0.0)
-
+#define M_PI 3.1415926
 #define PI (3.141592654)
-
-#define clamp(__v, __lower, __upper) (max(min((__v), (__upper)), (__lower)))
-
-#define min(__x, __y) ((__x) < (__y) ? (__x) : (__y))
-
-#define max(__x, __y) ((__x) > (__y) ? (__x) : (__y))
-
-// Linear interpolation
-#define lerp(__start, __end, __transition) ((__start) + ((__end) - (__start)) * (__transition))
-
-// Bilinear interpolation
-#define blerp(__p00, __p10, __p01, __p11, __tx, __ty) \
-    lerp(lerp((__p00), (__p10), (__tx)), lerp((__p01), (__p11), (__tx)), (__ty))
 
 #define NAN (0.0 / 0.0)
 #define INFINITY (1.0 / 0.0)

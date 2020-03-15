@@ -1,12 +1,13 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
-#include <libsystem/cstring.h>
-#include <libsystem/error.h>
-#include <libsystem/logger.h>
-#include <libsystem/iostream.h>
 #include <libsystem/cmdline.h>
+#include <libsystem/cstring.h>
+#include <libsystem/Result.h>
+#include <libsystem/io/Directory.h>
+#include <libsystem/io/Stream.h>
+#include <libsystem/logger.h>
 
 static bool option_all = false;
 static bool option_list = false;
@@ -19,16 +20,20 @@ static const char *usages[] = {
     NULL,
 };
 
-static cmdline_option_t options[] = {
-    CMDLINE_OPT_HELP,
+static CommandLineOption options[] = {
+    COMMANDLINE_OPT_HELP,
 
-    CMDLINE_OPT_BOOL("all", 'a', option_all, "Do not ignore entries starting with '.'.", CMDLINE_NO_CALLBACK),
-    CMDLINE_OPT_BOOL("list", 'l', option_list, "Long listing mode.", CMDLINE_NO_CALLBACK),
-    CMDLINE_OPT_BOOL("color", 'c', option_color, "Enable colored output.", CMDLINE_NO_CALLBACK),
+    COMMANDLINE_OPT_BOOL("all", 'a', option_all, "Do not ignore entries starting with '.'.", COMMANDLINE_NO_CALLBACK),
+    COMMANDLINE_OPT_BOOL("list", 'l', option_list, "Long listing mode.", COMMANDLINE_NO_CALLBACK),
+    COMMANDLINE_OPT_BOOL("color", 'c', option_color, "Enable colored output.", COMMANDLINE_NO_CALLBACK),
 
-    CMDLINE_OPT_END};
+    COMMANDLINE_OPT_END};
 
-static cmdline_t cmdline = CMDLINE(usages, options, "List files and directories in the current working directory by default.", "Options can be combined.");
+static CommandLine cmdline = CMDLINE(
+    usages,
+    options,
+    "List files and directories in the current working directory by default.",
+    "Options can be combined.");
 
 const char *file_type_name[] = {
     "-", // None
@@ -38,9 +43,9 @@ const char *file_type_name[] = {
     "p", // Pipe
 };
 
-void ls_print_entry(IOStreamDirentry *entry)
+void ls_print_entry(DirectoryEntry *entry)
 {
-    IOStreamState *stat = &entry->stat;
+    FileState *stat = &entry->stat;
 
     if (option_list)
     {
@@ -48,7 +53,7 @@ void ls_print_entry(IOStreamDirentry *entry)
     }
 
     if (option_all || entry->name[0] != '.')
-        printf((stat->type == IOSTREAM_TYPE_DIRECTORY && option_color) ? "\e[1;34m%s\e[0m/ " : "%s  ", entry->name);
+        printf((stat->type == FILE_TYPE_DIRECTORY && option_color) ? "\e[1;34m%s\e[0m/ " : "%s  ", entry->name);
 
     if (option_list)
     {
@@ -56,49 +61,37 @@ void ls_print_entry(IOStreamDirentry *entry)
     }
 }
 
-int ls(const char *target_path)
+int ls(const char *target_path, bool with_prefix)
 {
-    IOStream *dir = iostream_open(target_path, IOSTREAM_READ);
+    Directory *directory = directory_open(target_path, OPEN_READ);
 
-    if (dir != NULL)
+    if (handle_has_error(directory))
     {
-        IOStreamState stat = {0};
-        iostream_stat(dir, &stat);
-
-        if (stat.type == IOSTREAM_TYPE_DIRECTORY)
-        {
-            IOStreamDirentry entry;
-
-            while (iostream_read(dir, &entry, sizeof(entry)) > 0)
-            {
-                ls_print_entry(&entry);
-            }
-        }
-        else
-        {
-            IOStreamDirentry entry;
-            entry.stat = stat;
-            Path *p = path(target_path);
-            strlcpy(entry.name, path_filename(p), PATH_LENGHT);
-            ls_print_entry(&entry);
-            path_delete(p);
-        }
-
-        if (!option_list)
-        {
-            printf("\n");
-        }
-
-        iostream_close(dir);
-
-        return 0;
-    }
-    else
-    {
-        iostream_printf(err_stream, "ls: cannot access '%s'", target_path);
-        error_print("");
+        handle_printf_error(directory, "ls: cannot access '%s'", target_path);
+        directory_close(directory);
         return -1;
     }
+
+    if (with_prefix)
+    {
+        printf("%s:\n", target_path);
+    }
+
+    DirectoryEntry entry;
+
+    while (directory_read(directory, &entry) > 0)
+    {
+        ls_print_entry(&entry);
+    }
+
+    if (!option_list)
+    {
+        printf("\n");
+    }
+
+    directory_close(directory);
+
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -107,20 +100,19 @@ int main(int argc, char **argv)
 
     if (argc == 2)
     {
-        return ls(argv[1]);
+        return ls(argv[1], false);
     }
     else if (argc > 2)
     {
         for (int i = 1; i < argc; i++)
         {
-            printf("%s:\n", argv[i]);
-            ls(argv[i]);
+            ls(argv[i], true);
         }
 
         return 0;
     }
     else
     {
-        return ls(".");
+        return ls(".", false);
     }
 }

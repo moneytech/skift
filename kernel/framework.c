@@ -1,37 +1,32 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
 #include <libsystem/__plugs__.h>
 
-#include <libsystem/iostream.h>
-#include <libsystem/atomic.h>
+#include <libsystem/Result.h>
 #include <libsystem/assert.h>
-#include <libsystem/error.h>
+#include <libsystem/atomic.h>
+#include <libsystem/io/Stream.h>
 
-#include "tasking.h"
-#include "memory.h"
-#include "serial.h"
-#include "clock.h"
+#include "kernel/clock.h"
+#include "kernel/memory.h"
+#include "kernel/serial.h"
+#include "kernel/tasking.h"
+#include "kernel/tasking/Handles.h"
 
 /* --- Framework initialization --------------------------------------------- */
 
-IOStream *in_stream;
-IOStream *out_stream;
-IOStream *err_stream;
-IOStream *log_stream;
+Stream *in_stream = NULL;
+Stream *out_stream = NULL;
+Stream *err_stream = NULL;
+Stream *log_stream = NULL;
 
-IOStream internal_log_stream = {0};
-
-int log_stream_write(IOStream *stream, const void *buffer, uint size)
-{
-    __unused(stream);
-    return serial_write(buffer, size);
-}
+#define INTERNAL_LOG_STREAM_HANDLE HANDLE_INVALID_ID
+static Stream internal_log_stream = {.handle = {.id = INTERNAL_LOG_STREAM_HANDLE}};
 
 void __plug_init(void)
 {
-    internal_log_stream.write = log_stream_write;
 
     in_stream = NULL;
     out_stream = &internal_log_stream;
@@ -54,13 +49,13 @@ void __plug_lock_assert_failed(Lock *lock, const char *file, const char *functio
 /* --- Systeme API ---------------------------------------------------------- */
 
 // We are the system so we doesn't need that ;)
-void __plug_system_get_info(system_info_t *info)
+void __plug_system_get_info(SystemInfo *info)
 {
     __unused(info);
     assert(false);
 }
 
-void __plug_system_get_status(system_status_t *status)
+void __plug_system_get_status(SystemStatus *status)
 {
     __unused(status);
     assert(false);
@@ -116,48 +111,6 @@ int __plug_logger_unlock()
     return 0;
 }
 
-/* --- Iostream plugs ------------------------------------------------------- */
-
-int __plug_iostream_open(const char *file_path, IOStreamFlag flags)
-{
-    return task_open_file(sheduler_running(), file_path, flags);
-}
-
-int __plug_iostream_close(int fd)
-{
-    return task_close_file(sheduler_running(), fd);
-}
-
-int __plug_iostream_read(int fd, void *buffer, uint size)
-{
-    return task_read_file(sheduler_running(), fd, buffer, size);
-}
-
-int __plug_iostream_write(int fd, const void *buffer, uint size)
-{
-    return task_write_file(sheduler_running(), fd, buffer, size);
-}
-
-int __plug_iostream_call(int fd, int request, void *args)
-{
-    return task_call_file(sheduler_running(), fd, request, args);
-}
-
-int __plug_iostream_seek(int fd, int offset, IOStreamWhence whence)
-{
-    return task_seek_file(sheduler_running(), fd, offset, whence);
-}
-
-int __plug_iostream_tell(int fd, IOStreamWhence whence)
-{
-    return task_tell_file(sheduler_running(), fd, whence);
-}
-
-int __plug_iostream_stat(int fd, IOStreamState *stat)
-{
-    return task_stat_file(sheduler_running(), fd, stat);
-}
-
 /* --- Processes ------------------------------------------------------------ */
 
 int __plug_process_this(void)
@@ -165,12 +118,10 @@ int __plug_process_this(void)
     return sheduler_running_id();
 }
 
-int __plug_process_exec(const char *file_name, const char **argv)
+int __plug_process_launch(Launchpad *launchpad)
 {
-    return task_exec(file_name, argv);
+    return task_launch(sheduler_running(), launchpad);
 }
-
-// TODO: void __plug_process_spawn();
 
 void __plug_process_exit(int code)
 {
@@ -184,7 +135,7 @@ int __plug_process_cancel(int pid)
     int result;
 
     ATOMIC({
-        result = task_cancel(task_getbyid(pid), -1);
+        result = task_cancel(task_by_id(pid), -1);
     });
 
     return result;
@@ -232,7 +183,7 @@ int __plug_process_wakeup(int pid)
     int result;
 
     ATOMIC({
-        result = task_wakeup(task_getbyid(pid));
+        result = task_wakeup(task_by_id(pid));
     });
 
     return result;
@@ -243,58 +194,145 @@ int __plug_process_wait(int pid, int *exit_value)
     return task_wait(pid, exit_value);
 }
 
-/* --- Messaging plugs ------------------------------------------------------ */
+/* ---Handles plugs --------------------------------------------------------- */
 
-int messaging_send(message_t *event)
+void __plug_handle_open(Handle *handle, const char *path, OpenFlag flags)
 {
-    __unused(event);
-
-    return -ERR_FUNCTION_NOT_IMPLEMENTED;
+    handle->result = task_fshandle_open(sheduler_running(), &handle->id, path, flags);
 }
 
-int messaging_broadcast(const char *channel, message_t *event)
+void __plug_handle_close(Handle *handle)
 {
-    __unused(channel);
-    __unused(event);
-
-    return -ERR_FUNCTION_NOT_IMPLEMENTED;
+    if (handle->id != HANDLE_INVALID_ID)
+    {
+        task_fshandle_close(sheduler_running(), handle->id);
+    }
 }
 
-int messaging_request(message_t *request, message_t *result, int timeout)
+Result __plug_handle_select(
+    HandleSet *handles,
+    int *selected,
+    SelectEvent *selected_events,
+    Timeout timeout)
 {
-    __unused(request);
-    __unused(result);
-    __unused(timeout);
-
-    return -ERR_FUNCTION_NOT_IMPLEMENTED;
+    return task_fshandle_select(sheduler_running(), handles, selected, selected_events, timeout);
 }
 
-int messaging_receive(message_t *message, bool wait)
+size_t __plug_handle_read(Handle *handle, void *buffer, size_t size)
 {
-    __unused(message);
-    __unused(wait);
+    assert(handle->id != INTERNAL_LOG_STREAM_HANDLE);
 
-    return -ERR_FUNCTION_NOT_IMPLEMENTED;
+    size_t readed = 0;
+
+    handle->result = task_fshandle_read(sheduler_running(), handle->id, buffer, size, &readed);
+
+    return readed;
 }
 
-int messaging_respond(message_t *request, message_t *result)
+size_t __plug_handle_write(Handle *handle, const void *buffer, size_t size)
 {
-    __unused(request);
-    __unused(result);
+    if (handle->id == INTERNAL_LOG_STREAM_HANDLE)
+    {
+        handle->result = SUCCESS;
 
-    return -ERR_FUNCTION_NOT_IMPLEMENTED;
+        return serial_write(buffer, size);
+    }
+    else
+    {
+        size_t written = 0;
+
+        handle->result = task_fshandle_write(sheduler_running(), handle->id, buffer, size, &written);
+
+        return written;
+    }
 }
 
-int messaging_subscribe(const char *channel)
+Result __plug_handle_call(Handle *handle, int request, void *args)
 {
-    __unused(channel);
+    assert(handle->id != INTERNAL_LOG_STREAM_HANDLE);
 
-    return -ERR_FUNCTION_NOT_IMPLEMENTED;
+    handle->result = task_fshandle_call(sheduler_running(), handle->id, request, args);
+
+    return handle->result;
 }
 
-int messaging_unsubscribe(const char *channel)
+int __plug_handle_seek(Handle *handle, int offset, Whence whence)
 {
-    __unused(channel);
+    assert(handle->id != INTERNAL_LOG_STREAM_HANDLE);
 
-    return -ERR_FUNCTION_NOT_IMPLEMENTED;
+    handle->result = task_fshandle_seek(sheduler_running(), handle->id, offset, whence);
+
+    return 0;
+}
+
+int __plug_handle_tell(Handle *handle, Whence whence)
+{
+    assert(handle->id != INTERNAL_LOG_STREAM_HANDLE);
+
+    int offset = 0;
+
+    handle->result = task_fshandle_tell(sheduler_running(), handle->id, whence, &offset);
+
+    return offset;
+}
+
+int __plug_handle_stat(Handle *handle, FileState *stat)
+{
+    assert(handle->id != INTERNAL_LOG_STREAM_HANDLE);
+
+    handle->result = task_fshandle_stat(sheduler_running(), handle->id, stat);
+
+    return 0;
+}
+
+void __plug_handle_connect(Handle *handle, const char *path)
+{
+    assert(handle->id != INTERNAL_LOG_STREAM_HANDLE);
+
+    handle->result = task_fshandle_connect(sheduler_running(), &handle->id, path);
+}
+
+void __plug_handle_accept(Handle *handle, Handle *connection_handle)
+{
+    assert(handle->id != INTERNAL_LOG_STREAM_HANDLE);
+
+    handle->result = task_fshandle_accept(sheduler_running(), handle->id, &connection_handle->id);
+}
+
+void __plug_handle_send(Handle *handle, Message *message)
+{
+    assert(handle->id != INTERNAL_LOG_STREAM_HANDLE);
+
+    handle->result = task_fshandle_send(sheduler_running(), handle->id, message);
+}
+
+void __plug_handle_receive(Handle *handle, Message *message)
+{
+    assert(handle->id != INTERNAL_LOG_STREAM_HANDLE);
+
+    handle->result = task_fshandle_receive(sheduler_running(), handle->id, message);
+}
+
+void __plug_handle_payload(Handle *handle, Message *message)
+{
+    assert(handle->id != INTERNAL_LOG_STREAM_HANDLE);
+
+    handle->result = task_fshandle_payload(sheduler_running(), handle->id, message);
+}
+
+void __plug_handle_discard(Handle *handle)
+{
+    assert(handle->id != INTERNAL_LOG_STREAM_HANDLE);
+
+    handle->result = task_fshandle_discard(sheduler_running(), handle->id);
+}
+
+Result __plug_create_pipe(int *reader_handle, int *writer_handle)
+{
+    return task_create_pipe(sheduler_running(), reader_handle, writer_handle);
+}
+
+Result __plug_create_term(int *master_handle, int *slave_handle)
+{
+    return task_create_term(sheduler_running(), master_handle, slave_handle);
 }

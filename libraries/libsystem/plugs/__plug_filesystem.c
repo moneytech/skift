@@ -1,10 +1,10 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
 #include <libsystem/__plugs__.h>
 #include <libsystem/filesystem.h>
-#include <libkernel/syscalls.h>
+#include <abi/Syscalls.h>
 
 int filesystem_link(const char *oldpath, const char *newpath)
 {
@@ -21,9 +21,9 @@ int filesystem_mkdir(const char *path)
     return __syscall(SYS_FILESYSTEM_MKDIR, (int)path, 0, 0, 0, 0);
 }
 
-int filesystem_mkfifo(const char *path)
+int filesystem_mkpipe(const char *path)
 {
-    return __syscall(SYS_FILESYSTEM_MKFIFO, (int)path, 0, 0, 0, 0);
+    return __syscall(SYS_FILESYSTEM_MKPIPE, (int)path, 0, 0, 0, 0);
 }
 
 int filesystem_rename(const char *old_path, const char *new_path)

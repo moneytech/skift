@@ -1,13 +1,13 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
 #include <libsystem/atomic.h>
 
-#include "x86/cpuid.h"
-#include "system.h"
-#include "tasking.h"
-#include "memory.h"
+#include "kernel/memory.h"
+#include "kernel/system.h"
+#include "kernel/tasking.h"
+#include "kernel/x86/cpuid.h"
 
 /* --- Version info --------------------------------------------------------- */
 
@@ -26,13 +26,19 @@ char *__kernel_uname_format = "%s %d.%d.%d-%s @ " __COMMIT__;
 
 const char *const witty_comments[] = {
     "Witty comment unavailable :(",
+
+    "Yo DAWG, I heard you like errors, \n\t"
+    "// so I put an error in your error handler\n\t"
+    "// so you can get error while you get error",
+
+    "Excuse me Sir, \n\t"
+    "// Do you have a moment to talk about TempleOS?",
+
     "Surprise! Haha. Well, this is awkward.",
     "Oh - I know what I did wrong!",
     "Uh... Did I do that?",
     "Oops.",
     "On the bright side, I bought you a teddy bear!",
-    "Yo DAWG, I heard you like errors,\n\t// so i put an error in your error handler\n\t// so you can get error while you get error",
-    "Excuse me Sir, \n\t// Do you have a moment to talk aboucrash reports, originally exclusively fot TempleOS?",
     "DON'T PANIC!",
     "...",
     "Greenpeace free'd the mallocs \\o/",
@@ -53,14 +59,16 @@ const char *const witty_comments[] = {
     "This doesn't make any sense!",
     "It's not a good surprise...",
     "Don't do that.",
-    "Get the f*** outa my room, I'm playing minecraft"};
+    "Get the f*** outa my room, I'm playing minecraft",
+};
 
 static bool has_panic = false;
 static bool nested_panic = false;
 
-void __panic(const char *file, const char *function, const int line, processor_context_t *context, const char *message, ...)
+void __panic(const char *file, const char *function, const int line, InterruptStackFrame *stackframe, const char *message, ...)
 {
     atomic_begin();
+    atomic_disable();
 
     va_list va;
     va_start(va, message);
@@ -73,20 +81,20 @@ void __panic(const char *file, const char *function, const int line, processor_c
     if (!has_panic)
     {
         has_panic = true;
-        printf("\n\033[0;33m--- \033[0;31m!!!\033[0;33m ------------------------------------------------------------------------\033[0m\n");
+        printf("\n\e[0;33m--- \e[0;31m!!!\e[0;33m ------------------------------------------------------------------------\e[0m\n");
         printf("\n\tKERNEL");
     }
     else
     {
         nested_panic = true;
-        printf("\n\n\033[0;33m- - \033[0;31mNESTED\033[0;33m - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\033[0m\n");
+        printf("\n\n\e[0;33m- - \e[0;31mNESTED\e[0;33m - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\e[0m\n");
         printf("\n\tNESTED");
     }
 
-    printf(" PANIC\n\t// %s\n\n\t\033[0;31m", witty_comments[sheduler_get_ticks() % (sizeof(witty_comments) / sizeof(char *))]);
+    printf(" PANIC\n\t// %s\n\n\t\e[0;31m", witty_comments[sheduler_get_ticks() % (sizeof(witty_comments) / sizeof(char *))]);
 
     vprintf(message, va);
-    printf("\033[0m\n\tthrow by %s %s() ln%d", file, function, line);
+    printf("\e[0m\n\tthrow by %s %s() ln%d", file, function, line);
 
     printf("\n");
     printf("\n\tDiagnostic:");
@@ -106,10 +114,10 @@ void __panic(const char *file, const char *function, const int line, processor_c
         printf("\n");
     }
 
-    if (context != NULL)
+    if (stackframe)
     {
         printf("\n\tContext:\n");
-        processor_dump_context(context);
+        interrupts_dump_stackframe(stackframe);
     }
 
     memory_dump();
@@ -118,16 +126,15 @@ void __panic(const char *file, const char *function, const int line, processor_c
 
     if (!nested_panic)
     {
-        filesystem_panic_dump();
         task_panic_dump();
         cpuid_dump();
     }
 
     printf("\n");
 
-    puts("\n\tSystem halted!\n");
+    printf("\n\tSystem halted!\n");
 
-    printf("\n\033[0;33m--------------------------------------------------------------------------------\n\n");
+    printf("\n\e[0;33m--------------------------------------------------------------------------------\n\n");
 
     STOP;
 }

@@ -1,10 +1,12 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
-#include <libsystem/iostream.h>
+#include <abi/Task.h>
+
 #include <libsystem/cmdline.h>
-#include <libkernel/task.h>
+#include <libsystem/Result.h>
+#include <libsystem/io/Stream.h>
 
 static bool option_cpu_usage = false;
 static bool option_human = false;
@@ -23,7 +25,7 @@ static const char *usages[] = {
     NULL,
 };
 
-void all_cmdline_callback(cmdline_t *cmdline, cmdline_option_t *opt)
+void all_cmdline_callback(CommandLine *cmdline, CommandLineOption *opt)
 {
     __unused(cmdline);
     __unused(opt);
@@ -36,7 +38,7 @@ void all_cmdline_callback(cmdline_t *cmdline, cmdline_option_t *opt)
     option_list = true;
 }
 
-void full_cmdline_callback(cmdline_t *cmdline, cmdline_option_t *opt)
+void full_cmdline_callback(CommandLine *cmdline, CommandLineOption *opt)
 {
     __unused(cmdline);
     __unused(opt);
@@ -49,25 +51,25 @@ void full_cmdline_callback(cmdline_t *cmdline, cmdline_option_t *opt)
     option_list = true;
 }
 
-static cmdline_option_t options[] = {
-    CMDLINE_OPT_HELP,
+static CommandLineOption options[] = {
+    COMMANDLINE_OPT_HELP,
 
-    CMDLINE_OPT_BOOL("cwd", 'w', option_show_cwd, "Display the cwd.", CMDLINE_NO_CALLBACK),
-    CMDLINE_OPT_BOOL("human", 'v', option_human, "Display in a human readable way.", CMDLINE_NO_CALLBACK),
-    CMDLINE_OPT_BOOL("list", 'l', option_list, "Display in a list.", CMDLINE_NO_CALLBACK),
-    CMDLINE_OPT_BOOL("name", 'n', option_name, "Display the name of the process.", CMDLINE_NO_CALLBACK),
-    CMDLINE_OPT_BOOL("state", 's', option_state, "Display the state of the process.", CMDLINE_NO_CALLBACK),
-    CMDLINE_OPT_BOOL("usage", 'u', option_cpu_usage, "Display cpu usage in %.", CMDLINE_NO_CALLBACK),
+    COMMANDLINE_OPT_BOOL("cwd", 'w', option_show_cwd, "Display the cwd.", COMMANDLINE_NO_CALLBACK),
+    COMMANDLINE_OPT_BOOL("human", 'v', option_human, "Display in a human readable way.", COMMANDLINE_NO_CALLBACK),
+    COMMANDLINE_OPT_BOOL("list", 'l', option_list, "Display in a list.", COMMANDLINE_NO_CALLBACK),
+    COMMANDLINE_OPT_BOOL("name", 'n', option_name, "Display the name of the process.", COMMANDLINE_NO_CALLBACK),
+    COMMANDLINE_OPT_BOOL("state", 's', option_state, "Display the state of the process.", COMMANDLINE_NO_CALLBACK),
+    COMMANDLINE_OPT_BOOL("usage", 'u', option_cpu_usage, "Display cpu usage in %.", COMMANDLINE_NO_CALLBACK),
 
-    CMDLINE_OPT_SEPARATOR,
+    COMMANDLINE_OPT_SEPARATOR,
 
-    CMDLINE_OPT_BOOL("all", 'a', option_all, "Display all the above options.", all_cmdline_callback),
-    CMDLINE_OPT_BOOL("full", 'f', option_all, "Display all the above options exept -v.", full_cmdline_callback),
+    COMMANDLINE_OPT_BOOL("all", 'a', option_all, "Display all the above options.", all_cmdline_callback),
+    COMMANDLINE_OPT_BOOL("full", 'f', option_all, "Display all the above options exept -v.", full_cmdline_callback),
 
-    CMDLINE_OPT_END,
+    COMMANDLINE_OPT_END,
 };
 
-static cmdline_t cmdline = CMDLINE(
+static CommandLine cmdline = CMDLINE(
     usages,
     options,
     "Display a snapshot of all running processes.",
@@ -80,14 +82,14 @@ const char *task_state_string[] = {
     "launchpad",
     "running",
     "sleep",
+    "blocked",
     "wait",
     "wait_message",
     "wait_respond",
-    "wait_stream",
     "canceled",
 };
 
-int lsproc(task_info_t *info)
+int lsproc(TaskInfo *info)
 {
     // process id
     if (option_human)
@@ -175,16 +177,24 @@ int main(int argc, char **argv)
 {
     argc = cmdline_parse(&cmdline, argc, argv);
 
-    IOStream *proc_device = iostream_open("/dev/proc", IOSTREAM_READ);
+    Stream *proc_device = stream_open("/dev/proc", OPEN_READ);
 
-    task_info_t info;
+    if (handle_has_error(proc_device))
+    {
+        handle_printf_error(proc_device, "lproc: Failled to open /dev/proc");
+        stream_close(proc_device);
 
-    while (iostream_read(proc_device, &info, sizeof(info)))
+        return -1;
+    }
+
+    TaskInfo info;
+
+    while (stream_read(proc_device, &info, sizeof(info)))
     {
         lsproc(&info);
     }
 
-    iostream_close(proc_device);
+    stream_close(proc_device);
 
     return 0;
 }

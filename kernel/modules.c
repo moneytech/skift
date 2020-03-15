@@ -1,27 +1,21 @@
-/* Copyright © 2018-2019 N. Van Bossuyt.                                      */
+/* Copyright © 2018-2020 N. Van Bossuyt.                                      */
 /* This code is licensed under the MIT License.                               */
 /* See: LICENSE.md                                                            */
 
 /* modules.c : kernel modules/ramdisk loader                                  */
 
-/*
- * TODO:
- * - ADD support for kernel modules maybe pass some kind of struct
- *   with kernel function pointer.
- */
-
 #include <libsystem/cstring.h>
 #include <libsystem/logger.h>
 
-#include "multiboot.h"
+#include <thirdparty/multiboot/Multiboot.h>
 
-#include "modules.h"
+#include "kernel/modules.h"
 
 void load_module(multiboot_module_t *module)
 {
     if (strcmp("ramdisk", (char *)module->cmdline) == 0)
     {
-        ramdiload(module);
+        ramdisk_load(module);
     }
     else
     {
